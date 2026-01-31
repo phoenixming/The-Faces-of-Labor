@@ -10,15 +10,13 @@ namespace FacesOfLabor.Core
         Carrier
     }
 
-    public class MaskStation : Station
+    public class MaskStation : MonoBehaviour
     {
         public MaskType MaskToGive;
         public int MaskInventory;
         public int MaxMaskInventory;
         public bool HasMask => true;
         public bool CanTakeMasks;
-
-        protected override void Awake() { }
 
         public bool TryGiveMask(out MaskType mask) { mask = MaskType.None; return false; }
         public bool TryTakeMask(MaskType mask) => false;

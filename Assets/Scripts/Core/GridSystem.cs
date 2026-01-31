@@ -11,6 +11,7 @@ namespace FacesOfLabor.Core
     /// - Track walls (blocking cells) for pathfinding
     /// - Track infrastructure placement for construction/occupancy
     /// - Provide spatial queries (validity, walkability, entity lookup)
+    /// - Subscribe to Infrastructure events for automatic occupancy tracking
     ///
     /// Design Notes:
     /// - Uses Unity's Grid component for coordinate conversion
@@ -21,6 +22,7 @@ namespace FacesOfLabor.Core
     /// - Two data structures:
     ///   - walls: HashSet for O(1) pathfinding lookups
     ///   - infrastructure: Dictionary for construction/placement queries
+    ///   - infrastructurePositions: GUID to grid position mapping
     /// </summary>
     [RequireComponent(typeof(Grid))]
     public class GridSystem : MonoBehaviour
@@ -39,8 +41,12 @@ namespace FacesOfLabor.Core
         /// Infrastructure placement for construction/occupancy.
         /// Includes all placed infrastructure (workstations, stations, etc.).
         /// </summary>
-        private Dictionary<Vector2Int, InfrastructureType> infrastructureTypes;
         private Dictionary<Vector2Int, MonoBehaviour> infrastructureEntities;
+
+        /// <summary>
+        /// Maps infrastructure GUID to its grid position for event-based registration.
+        /// </summary>
+        private Dictionary<Guid, Vector2Int> infrastructurePositions;
 
         public float CellSize => grid != null ? grid.cellSize.x : 1f;
 
@@ -57,6 +63,15 @@ namespace FacesOfLabor.Core
 
             grid = GetComponent<Grid>();
             InitializeGrid();
+
+            Infrastructure.InfrastructureStarted += OnInfrastructureStarted;
+            Infrastructure.InfrastructureDestroyed += OnInfrastructureDestroyed;
+        }
+
+        private void OnDestroy()
+        {
+            Infrastructure.InfrastructureStarted -= OnInfrastructureStarted;
+            Infrastructure.InfrastructureDestroyed -= OnInfrastructureDestroyed;
         }
 
         #endregion
@@ -70,8 +85,33 @@ namespace FacesOfLabor.Core
         private void InitializeGrid()
         {
             walls = new HashSet<Vector2Int>();
-            infrastructureTypes = new Dictionary<Vector2Int, InfrastructureType>();
             infrastructureEntities = new Dictionary<Vector2Int, MonoBehaviour>();
+            infrastructurePositions = new Dictionary<Guid, Vector2Int>();
+        }
+
+        #endregion
+
+        #region Infrastructure Event Handlers
+
+        private void OnInfrastructureStarted(Infrastructure infrastructure)
+        {
+            Vector2Int position = WorldToGrid(infrastructure.transform.position);
+            infrastructurePositions[infrastructure.Id] = position;
+            infrastructureEntities[position] = infrastructure;
+            if (infrastructure is Wall)
+            {
+                walls.Add(position);
+            }
+        }
+
+        private void OnInfrastructureDestroyed(Guid infrastructureId)
+        {
+            if (infrastructurePositions.TryGetValue(infrastructureId, out Vector2Int position))
+            {
+                infrastructureEntities.Remove(position);
+                infrastructurePositions.Remove(infrastructureId);
+                walls.Remove(position);
+            }
         }
 
         #endregion
@@ -167,14 +207,14 @@ namespace FacesOfLabor.Core
 
         #endregion
 
-        #region Infrastructure (Placeholder)
+        #region Infrastructure
 
         /// <summary>
         /// Checks if infrastructure can be placed at the coordinate.
         /// </summary>
         public bool CanPlaceInfrastructure(Vector2Int coordinate, InfrastructureType type)
         {
-            if (infrastructureTypes.ContainsKey(coordinate))
+            if (infrastructureEntities.ContainsKey(coordinate))
                 return false;
             return true;
         }
@@ -184,7 +224,6 @@ namespace FacesOfLabor.Core
         /// </summary>
         public void PlaceInfrastructure(Vector2Int coordinate, InfrastructureType type, MonoBehaviour entity)
         {
-            infrastructureTypes[coordinate] = type;
             infrastructureEntities[coordinate] = entity;
         }
 
@@ -193,17 +232,7 @@ namespace FacesOfLabor.Core
         /// </summary>
         public void RemoveInfrastructure(Vector2Int coordinate)
         {
-            infrastructureTypes.Remove(coordinate);
             infrastructureEntities.Remove(coordinate);
-        }
-
-        /// <summary>
-        /// Gets the infrastructure type at a coordinate.
-        /// Returns None if no infrastructure exists there.
-        /// </summary>
-        public InfrastructureType GetInfrastructureType(Vector2Int coordinate)
-        {
-            return infrastructureTypes.TryGetValue(coordinate, out InfrastructureType type) ? type : InfrastructureType.None;
         }
 
         /// <summary>
@@ -223,7 +252,7 @@ namespace FacesOfLabor.Core
         /// </summary>
         public bool HasInfrastructure(Vector2Int coordinate)
         {
-            return infrastructureTypes.ContainsKey(coordinate);
+            return infrastructureEntities.ContainsKey(coordinate);
         }
 
         #endregion
@@ -246,7 +275,7 @@ namespace FacesOfLabor.Core
         /// </summary>
         public IEnumerable<Vector2Int> GetInfrastructureCoordinates()
         {
-            foreach (var kvp in infrastructureTypes.Keys)
+            foreach (var kvp in infrastructureEntities.Keys)
             {
                 yield return kvp;
             }
