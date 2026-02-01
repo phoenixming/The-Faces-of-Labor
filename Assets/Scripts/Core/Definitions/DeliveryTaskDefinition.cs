@@ -15,5 +15,10 @@ namespace FacesOfLabor.Core
 
         [Tooltip("Desired target type for delivery.")]
         public WorkstationType TargetType;
+
+        public override RealItem ProcessItem(RealItem input)
+        {
+            return input;
+        }
     }
 }

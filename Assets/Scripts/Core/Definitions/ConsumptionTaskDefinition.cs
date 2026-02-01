@@ -12,5 +12,14 @@ namespace FacesOfLabor.Core
     {
         // We don't need an `ItemPromise` for consumption here. That is implied
         // by the required work station
+
+        public override RealItem ProcessItem(RealItem input)
+        {
+            return new RealItem
+            {
+                BaseType = BaseItemType.None,
+                State = ProcessingState.Raw
+            };
+        }
     }
 }

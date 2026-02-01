@@ -12,5 +12,14 @@ namespace FacesOfLabor.Core
         [Header("Production Output")]
         [Tooltip("Base item type produced by this task.")]
         public BaseItemType ProducesBaseItem;
+
+        public override RealItem ProcessItem(RealItem input)
+        {
+            return new RealItem
+            {
+                BaseType = ProducesBaseItem,
+                State = ProcessingState.Raw
+            };
+        }
     }
 }

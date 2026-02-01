@@ -10,6 +10,7 @@ namespace FacesOfLabor.Core
     /// - Specify task type and metadata
     /// - Define required workstation for execution
     /// - Set execution time for task completion
+    /// - Transform input items into output items
     ///
     /// Design:
     /// - Immutable after creation (modifications should create new assets)
@@ -41,5 +42,7 @@ namespace FacesOfLabor.Core
 
         [Tooltip("Workstation type required. Null for Carrier/Delivery tasks.")]
         public WorkstationType RequiredWorkstation;
+
+        public abstract RealItem ProcessItem(RealItem input);
     }
 }
