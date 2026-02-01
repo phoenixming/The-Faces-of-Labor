@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: WorkStationFarm
   m_EditorClassIdentifier: 
   Definition: {fileID: 11400000, guid: a22c28ae778703b4d975fdbda0f59c4a, type: 2}
-  Prefab: {fileID: 3788671811019386269, guid: e570f5aee4531984b86a38007a46678e, type: 3}
+  Prefab: {fileID: 7120553095692839737, guid: f04d6b3a9660e4e4a90cccd1e5d8cca9, type: 3}
