@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using System.Collections.Generic;
 
 namespace FacesOfLabor.Core
@@ -26,6 +27,13 @@ namespace FacesOfLabor.Core
         [Tooltip("Workstation type to place when pressing K key.")]
         public WorkstationType StationBKey = WorkstationType.Stove;
 
+        [Header("Input Actions")]
+        [Tooltip("Input action for placing Station A.")]
+        public InputAction TestPlaceAction1;
+
+        [Tooltip("Input action for placing Station B.")]
+        public InputAction TestPlaceAction2;
+
         private Camera mainCamera;
 
         private void Awake()
@@ -49,9 +57,44 @@ namespace FacesOfLabor.Core
             }
         }
 
-        private void Update()
+        private void OnEnable()
         {
-            HandleInput();
+            if (TestPlaceAction1 != null)
+            {
+                TestPlaceAction1.Enable();
+                TestPlaceAction1.performed += OnTestPlaceAction1;
+            }
+
+            if (TestPlaceAction2 != null)
+            {
+                TestPlaceAction2.Enable();
+                TestPlaceAction2.performed += OnTestPlaceAction2;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (TestPlaceAction1 != null)
+            {
+                TestPlaceAction1.performed -= OnTestPlaceAction1;
+                TestPlaceAction1.Disable();
+            }
+
+            if (TestPlaceAction2 != null)
+            {
+                TestPlaceAction2.performed -= OnTestPlaceAction2;
+                TestPlaceAction2.Disable();
+            }
+        }
+
+        private void OnTestPlaceAction1(InputAction.CallbackContext context)
+        {
+            PlaceWorkStation(StationAKey);
+        }
+
+        private void OnTestPlaceAction2(InputAction.CallbackContext context)
+        {
+            PlaceWorkStation(StationBKey);
         }
 
         private void InitializeRegistry()
@@ -59,18 +102,6 @@ namespace FacesOfLabor.Core
             if (Registry != null)
             {
                 Registry.Initialize();
-            }
-        }
-
-        private void HandleInput()
-        {
-            if (Input.GetKeyDown(KeyCode.J))
-            {
-                PlaceWorkStation(StationAKey);
-            }
-            else if (Input.GetKeyDown(KeyCode.K))
-            {
-                PlaceWorkStation(StationBKey);
             }
         }
 
@@ -111,8 +142,8 @@ namespace FacesOfLabor.Core
             if (mainCamera == null || GridSystem.Instance == null)
                 return Vector2Int.zero;
 
-            Vector3 mousePosition = Input.mousePosition;
-            Ray ray = mainCamera.ScreenPointToRay(mousePosition);
+            Vector2 mousePosition = Mouse.current.position.ReadValue();
+            Ray ray = mainCamera.ScreenPointToRay(new Vector3(mousePosition.x, mousePosition.y, 0f));
 
             if (Physics.Raycast(ray, out RaycastHit hit))
             {

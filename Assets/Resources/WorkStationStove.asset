@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: WorkStationStove
   m_EditorClassIdentifier: 
   Definition: {fileID: 11400000, guid: ad317dd3bd2dc7347baa2be2ff7f5441, type: 2}
-  Prefab: {fileID: 4673788764228937524, guid: 81d0faf49b84ac146b58ae654305f6b6, type: 3}
+  Prefab: {fileID: 566038884682923963, guid: 0bce6dc02c998a044b8fc6d04094f907, type: 3}
