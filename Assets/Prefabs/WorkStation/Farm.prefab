@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 219778918152398627}
+  - component: {fileID: 7044940518354200498}
   m_Layer: 0
   m_Name: Farm
   m_TagString: Untagged
@@ -32,6 +33,23 @@ Transform:
   - {fileID: 1822738100683488226}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7044940518354200498
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7120553095692839737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 37f898a7faee47a44a08d98851e677ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  capacity: 0
+  acceptsPromise: 0
+  forPickup: 0
+  definition: {fileID: 11400000, guid: 3b445c86da8d78945b77bbbf4ce88e69, type: 2}
+  GridPosition: {x: 0, y: 0}
 --- !u!1001 &2216074311409753097
 PrefabInstance:
   m_ObjectHideFlags: 0

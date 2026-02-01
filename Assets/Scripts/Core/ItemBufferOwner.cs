@@ -33,12 +33,12 @@ namespace FacesOfLabor.Core
 
         protected virtual void Start()
         {
-            BufferOwnerStarted?.Invoke(this);
+            if (AcceptsPromise != ItemPromise.None) BufferOwnerStarted?.Invoke(this);
         }
 
         protected virtual void OnDestroy()
         {
-            BufferOwnerDestroyed?.Invoke(Id);
+            if (AcceptsPromise != ItemPromise.None) BufferOwnerDestroyed?.Invoke(Id);
         }
 
 

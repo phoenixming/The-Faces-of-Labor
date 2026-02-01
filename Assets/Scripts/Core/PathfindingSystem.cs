@@ -133,7 +133,14 @@ namespace FacesOfLabor.Core
         /// </summary>
         public bool IsReachable(Vector2Int start, Vector2Int destination)
         {
-            return GetDirection(start, destination) != Vector2Int.zero;
+            return start == destination || GetDirection(start, destination) != Vector2Int.zero;
+        }
+
+        public bool IsReachable(Vector3 start, Vector3 destination)
+        {
+            Vector2Int startCell = gridSystem.WorldToGrid(start);
+            Vector2Int destinationCell = gridSystem.WorldToGrid(destination);
+            return IsReachable(startCell, destinationCell);
         }
 
         #endregion

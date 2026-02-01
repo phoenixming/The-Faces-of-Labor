@@ -29,6 +29,8 @@ namespace FacesOfLabor.Core
         protected virtual void Awake()
         {
             if (capacity <= 0) Debug.LogWarning($"NPC {name} has non-positive capacity.");
+
+            forPickup = true;
         }
 
         protected virtual void Update()
@@ -44,6 +46,7 @@ namespace FacesOfLabor.Core
 
                 if (IsAtTarget())
                 {
+                    Debug.Log($"NPC {name} reached target {MoveTarget.name}.");
                     MoveTarget = null;
                     AdvanceTaskAndState();
                 }
@@ -59,10 +62,13 @@ namespace FacesOfLabor.Core
             return distance <= distanceTolerance;
         }
 
+        /// <summary>
+        /// Moves the NPC towards the current MoveTarget.
+        /// </summary>
         protected virtual void MoveTowardsTarget()
         {
             if (MoveTarget == null)
-                return;
+                throw new InvalidOperationException("No MoveTarget set for NPC.");
 
             Vector2Int direction = PathfindingSystem.Instance?.GetDirection(transform.position, MoveTarget.position) ?? Vector2Int.zero;
 
@@ -70,6 +76,13 @@ namespace FacesOfLabor.Core
             {
                 Vector3 moveDirection = new Vector3(direction.x, 0, direction.y);
                 transform.position += moveDirection * moveSpeed * Time.deltaTime;
+            }
+            else if (PathfindingSystem.Instance.IsReachable(transform.position, MoveTarget.position))
+            {
+                /// Pathfinding system only guides the NPC to that grid.
+                /// It is up to the NPC to fine-tune its movement to the exact target position.
+                Vector3 directionToTarget = (MoveTarget.position - transform.position).normalized;
+                transform.position += directionToTarget * moveSpeed * Time.deltaTime;
             }
         }
 
@@ -164,6 +177,11 @@ namespace FacesOfLabor.Core
             {
                 AddItem(resultItem);
                 Debug.Log($"NPC {name} received item {resultItem} from workstation task {CurrentTask.Id}.");
+                Debug.Log($"NPC {name} now holds {AvailableItems} free items.");
+            }
+            else
+            {
+                Debug.Log($"NPC {name} workstation task {CurrentTask.Id} produced no item.");
             }
 
             FinishTask();
@@ -184,18 +202,25 @@ namespace FacesOfLabor.Core
             TaskManager.Instance.CompleteTask(CurrentTask);
             // TODO: Check for emergency state (e.g., starvation)
             // TODO: Check for re-scheduled tasks
-            TaskInstance newTask = CurrentTask.Repeat();
-            if (newTask != null)
-            {
-                Debug.Log($"NPC {name} repeating task {newTask.Id}.");
-                // TODO: Add to task list
-                SetupTask(newTask);
-                return;
-            } else
-            {
-                CurrentTask = null;
-                State = NPCState.Idle;
+            if (CurrentTask.RepeatCount > 0) {
+                TaskInstance newTask = CurrentTask.Repeat();
+                if (TaskManager.Instance.AddTaskAndClaim(newTask))
+                {
+                    Debug.Log($"NPC {name} repeating task {newTask.Id}.");
+                    // TODO: Add to task list
+                    SetupTask(newTask);
+                    return;
+                }
+                else
+                {
+                    Debug.LogError($"NPC {name} could not repeat task {CurrentTask.Id}.");
+                }
             }
+
+            // Default task clean-up
+            CurrentTask = null;
+            State = NPCState.Idle;
+
         }
 
         private void ResetStates()

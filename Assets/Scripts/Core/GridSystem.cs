@@ -102,6 +102,8 @@ namespace FacesOfLabor.Core
             {
                 walls.Add(position);
             }
+            // Snap infrastructure to grid center
+            infrastructure.transform.position = GetCellCenterWorld(position);
         }
 
         private void OnInfrastructureDestroyed(Guid infrastructureId)

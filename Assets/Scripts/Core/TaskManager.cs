@@ -143,8 +143,9 @@ namespace FacesOfLabor.Core
 
         private void AddBufferOwner(ItemBufferOwner owner)
         {
-            if (owner == null)
-                return;
+            if (owner == null) throw new ArgumentNullException(nameof(owner));
+
+            if (owner.AcceptsPromise == ItemPromise.None) return;
 
             var promise = owner.AcceptsPromise;
             if (owner.IsForPickup)
@@ -156,6 +157,8 @@ namespace FacesOfLabor.Core
                 }
                 if (!list.Contains(owner))
                     list.Add(owner);
+
+                Debug.Log($"[TaskManager] Registered pickup buffer owner {owner} for promise {promise}.");
             }
             else
             {
@@ -166,6 +169,8 @@ namespace FacesOfLabor.Core
                 }
                 if (!list.Contains(owner))
                     list.Add(owner);
+
+                Debug.Log($"[TaskManager] Registered dropoff buffer owner {owner} for promise {promise}.");
             }
         }
 
@@ -244,113 +249,182 @@ namespace FacesOfLabor.Core
             for (int i = pendingTasks.Count - 1; i >= 0; i--)
             {
                 var task = pendingTasks[i];
-                if (task.Type == TaskType.Delivery)
+                var resources = FindTaskResources(task);
+
+                if (resources.HasValue && BindTaskToResources(task, resources.Value))
                 {
-                    if (TryAssignDelivery(task))
-                    {
-                        PromoteTask(task);
-                    }
-                    continue;
-                }
-
-                var workstationType = task.Definition.RequiredWorkstation;
-                if (workstationType == WorkstationType.None)
-                {
-                    throw new InvalidOperationException("Task requires a workstation.");
-                }
-
-                CleanNullStations(workstationType);
-
-                if (!freeWorkStations.TryGetValue(workstationType, out List<WorkStation> stations))
-                    continue;
-
-                foreach (var station in stations)
-                {
-                    if (station == null)
-                        continue;
-
-                    if (CanReserveStation(task, station))
-                    {
-                        task.AssignWorkStation(station);
-                        RemoveFromFreeList(station);
-                        PromoteTask(task);
-                        break;
-                    }
+                    PromoteTask(task);
                 }
             }
         }
 
-        private bool CanReserveStation(TaskInstance task, WorkStation station)
-        {
-            var taskType = task.Definition.Type;
+        #region Test-Test-Reserve Pattern
 
-            switch (taskType)
+        /// <summary>
+        /// Result of resource finding for a task.
+        /// Contains the resources that would be used if the task is promoted.
+        /// </summary>
+        public struct TaskResources
+        {
+            public WorkStation Station;
+            public ItemBufferOwner PickupSource;
+            public ItemBufferOwner DropoffDestination;
+        }
+
+        /// <summary>
+        /// Phase 1: Test if a task can be promoted.
+        /// Finds and returns the resources that would be used without reserving them.
+        /// Returns null if resources are not available.
+        /// </summary>
+        /// <param name="task">The task to check.</param>
+        /// <returns>Resources if available, null otherwise.</returns>
+        public TaskResources? FindTaskResources(TaskInstance task)
+        {
+            if (task.State != TaskState.Pending)
+                return null;
+
+            if (task.Type == TaskType.Delivery)
+                return FindDeliveryPair(task);
+
+            return FindWorkStation(task);
+        }
+
+        private TaskResources? FindWorkStation(TaskInstance task)
+        {
+            var workstationType = task.Definition.RequiredWorkstation;
+            if (workstationType == WorkstationType.None)
+                throw new InvalidOperationException("[TaskManager] Task requires a workstation.");
+
+            CleanNullStations(workstationType);
+
+            if (!freeWorkStations.TryGetValue(workstationType, out List<WorkStation> stations))
+                return null;
+
+            foreach (var station in stations)
             {
-                case TaskType.Production:
-                    return true;
-                case TaskType.Delivery:
-                    throw new InvalidOperationException("Delivery tasks don't use workstations.");
-                case TaskType.Refinement:
-                case TaskType.Consumption:
-                    return station.AvailableItems > 0;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(taskType), taskType, null);
+                if (station != null)
+                {
+                    bool needsItems = task.Type == TaskType.Refinement || task.Type == TaskType.Consumption;
+                    if (!needsItems || station.AvailableItems > 0)
+                    {
+                        return new TaskResources { Station = station };
+                    }
+                }
             }
+
+            return null;
         }
 
-        private bool TryAssignDelivery(TaskInstance task)
+        private TaskResources? FindDeliveryPair(TaskInstance task)
         {
-            Debug.Log($"Trying to assign delivery task {task.Id}.");
+            // Debug.Log($"[TaskManager] Finding delivery pair for task {task.Id}.");
             var definition = task.Definition as DeliveryTaskDefinition;
             if (definition == null)
-                throw new InvalidOperationException("Delivery task must use DeliveryTaskDefinition.");
+                throw new InvalidOperationException("[TaskManager] Delivery task must use DeliveryTaskDefinition.");
 
             var source = FindDeliverySource(definition.DeliversPromise);
             if (source == null) {
-                Debug.Log($"No valid pickup source found for delivery task {task.Id}.");
-                return false;
+                // Debug.Log($"[TaskManager] No valid pickup source found for delivery task {task.Id}.");
+                return null;
             }
 
             var destination = FindDeliveryDestination(definition);
             if (destination == null) {
-                Debug.Log($"No valid dropoff destination found for delivery task {task.Id}.");
+                // Debug.Log($"[TaskManager] No valid dropoff destination found for delivery task {task.Id}.");
+                return null;
+            }
+
+            return new TaskResources { PickupSource = source, DropoffDestination = destination };
+        }
+
+        /// <summary>
+        /// Phase 2: Bind and reserve resources for a task.
+        /// Takes the resources found by FindTaskResources and actually reserves them.
+        /// Returns true if binding succeeded.
+        /// </summary>
+        /// <param name="task">The task to bind.</param>
+        /// <param name="resources">The resources to use (from FindTaskResources).</param>
+        /// <returns>True if successfully bound and reserved.</returns>
+        public bool BindTaskToResources(TaskInstance task, TaskResources resources)
+        {
+            if (task.State != TaskState.Pending)
+            {
+                Debug.LogWarning($"[TaskManager] Cannot bind task {task.Id}: not in Pending state.");
                 return false;
             }
 
-            if (!source.TryReserveItem(1)) {
-                Debug.Log($"Failed to reserve item from source for delivery task {task.Id}.");
+            if (task.Type == TaskType.Delivery)
+                return BindDeliveryPair(task, resources.PickupSource, resources.DropoffDestination);
+            else
+                return BindWorkStation(task, resources.Station);
+        }
+
+        private bool BindWorkStation(TaskInstance task, WorkStation station)
+        {
+            if (station == null)
+                return false;
+
+            bool needsItems = task.Type == TaskType.Refinement || task.Type == TaskType.Consumption;
+            if (needsItems && !station.TryReserveItem(1)) return false;
+
+            task.AssignWorkStation(station);
+            RemoveFromFreeList(station);
+            return true;
+        }
+
+        private bool BindDeliveryPair(TaskInstance task, ItemBufferOwner source, ItemBufferOwner destination)
+        {
+            if (source == null || destination == null)
+                return false;
+
+            if (!source.TryReserveItem(1))
+            {
+                Debug.Log($"[TaskManager] Failed to reserve item from source for delivery task {task.Id}.");
                 return false;
             }
 
             if (!destination.TryReserveSlot(1))
             {
-                Debug.Log($"Failed to reserve slot at destination for delivery task {task.Id}.");
+                Debug.Log($"[TaskManager] Failed to reserve slot at destination for delivery task {task.Id}.");
                 source.ReleaseReservedItems(1);
                 return false;
             }
 
-            Debug.Log($"Prepared delivery task {task.Id} from source {source.Id} to destination {destination.Id}.");
+            Debug.Log($"[TaskManager] Bound delivery task {task.Id} from source {source.Id} to destination {destination.Id}.");
 
             task.AssignPickupEntity(source);
             task.AssignDropoffEntity(destination);
             return true;
         }
 
+        #endregion
+
+        /// <summary>
+        /// Finds the first valid pickup source that can provide the required item promise.
+        /// </summary>
+        /// <param name="promise">The item promise required for delivery.</param>
+        /// <returns>The first valid pickup source or null if none found.</returns>
         private ItemBufferOwner FindDeliverySource(ItemPromise promise)
         {
             // Search by exact promise match first
             if (pickupSources.TryGetValue(promise, out var exactList))
             {
+                // Debug.Log($"[TaskManager] Found {exactList.Count} pickup sources for promise {promise}.");
                 for (int i = 0; i < exactList.Count; i++)
                 {
                     var owner = exactList[i];
-                    if (owner == null)
+                    if (owner == null) {
+                        // Debug.Log($"[TaskManager] Skipping null pickup source for promise {promise}.");
                         continue;
+                    }
 
-                    if (owner.AvailableItems <= 0)
-                        continue;
+                    if (owner.AvailableItems > 0)
+                    {
+                        // Debug.Log($"[TaskManager] Selected pickup source {owner.Id} for promise {promise}.");
+                        return owner;
+                    }
 
-                    return owner;
+                    // Debug.Log($"[TaskManager] Pickup source {owner.Id} has no available items for promise {promise}.");
                 }
             }
 
@@ -358,6 +432,11 @@ namespace FacesOfLabor.Core
             return null;
         }
 
+        /// <summary>
+        /// Finds the first valid dropoff destination that can accept the required item promise.
+        /// </summary>
+        /// <param name="definition">The delivery task definition.</param>
+        /// <returns>The first valid dropoff destination or null if none found.</returns>
         private ItemBufferOwner FindDeliveryDestination(DeliveryTaskDefinition definition)
         {
             // Search by exact promise match first
@@ -418,6 +497,49 @@ namespace FacesOfLabor.Core
         }
 
         /// <summary>
+        /// Add a task with pre-assigned resources and try to claim it.
+        /// If binding succeeds, the task is claimed immediately.
+        /// If binding fails, the task goes to pending and resources are cleared.
+        /// Used by NPCs to claim specific tasks with their preferred resources.
+        /// </summary>
+        /// <param name="task">Task with desired station/entity already assigned.</param>
+        /// <returns>True if task is claimed successfully, false if binding fails.</returns>
+        public bool AddTaskAndClaim(TaskInstance task)
+        {
+            if (task == null)
+            {
+                Debug.LogError($"[TaskManager] Cannot claim null task.");
+                return false;
+            }
+            if (task.State != TaskState.Pending)
+            {
+                Debug.LogError($"[TaskManager] Cannot claim task {task.Id}: not in Pending state.");
+                return false;
+            }
+
+            var resources = new TaskResources
+            {
+                Station = task.WorkStation,
+                PickupSource = task.PickupEntity,
+                DropoffDestination =task.DropoffEntity
+            };
+
+            if (BindTaskToResources(task, resources))
+            {
+                task.TransitionTo(TaskState.Claimed);
+                claimedTasks.Add(task);
+                Debug.Log($"[TaskManager] Task {task.Id} claimed with preferred resources.");
+                return true;
+            }
+
+            Debug.Log($"[TaskManager] Failed to bind task {task.Id} to preferred resources. Moving to pending.");
+            pendingTasks.Add(task);
+            task.ClearWorkStation();
+            task.ClearDeliveryEntities();
+            return false;
+        }
+
+        /// <summary>
         /// Get all ready tasks (for NPC inspection/selection).
         /// </summary>
         public IReadOnlyList<TaskInstance> GetReadyTasks()
@@ -454,6 +576,7 @@ namespace FacesOfLabor.Core
         /// </summary>
         public void CompleteTask(TaskInstance task)
         {
+            task.TransitionTo(TaskState.Completed);
             executingTasks.Remove(task);
         }
 

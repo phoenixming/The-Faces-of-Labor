@@ -57,10 +57,16 @@ namespace FacesOfLabor.Core
     /// Combination of BaseItemType and ProcessingState.
     /// Represents the complete set of possible item types.
     /// </summary>
+    [Serializable]
     public struct RealItem
     {
         public BaseItemType BaseType;
         public ProcessingState State;
+
+        public override string ToString()
+        {
+            return $"{State} {BaseType}";
+        }
     }
 
     #endregion
@@ -153,7 +159,10 @@ namespace FacesOfLabor.Core
         Claimed,
 
         /// <summary>NPC is performing work.</summary>
-        Executing
+        Executing,
+
+        /// <summary>Task is complete and outputs have been delivered.</summary>
+        Completed
     }
 
     #endregion
