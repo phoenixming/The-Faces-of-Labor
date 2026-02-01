@@ -13,7 +13,7 @@ namespace FacesOfLabor.Core
             Dead
         }
 
-        public ItemPromise CurrentMask;
+        public ItemPromise CurrentMask => AcceptsPromise;
         public NPCState State;
         public bool IsIdle => State == NPCState.Idle;
         public float Hunger;
@@ -24,6 +24,8 @@ namespace FacesOfLabor.Core
         protected float distanceTolerance;
         protected float moveSpeed = 2f;
 
+        protected Vector2Int previousGridPosition;
+
         public event Action<NPCCore> OnDied;
 
         protected virtual void Awake()
@@ -31,11 +33,19 @@ namespace FacesOfLabor.Core
             if (capacity <= 0) Debug.LogWarning($"NPC {name} has non-positive capacity.");
 
             forPickup = true;
+
+            GridSystem gridSystem = GridSystem.Instance;
+            if (gridSystem != null)
+            {
+                previousGridPosition = gridSystem.WorldToGrid(transform.position);
+            }
         }
 
         protected virtual void Update()
         {
-            if (State == NPCState.Idle)
+            CheckGridCellChanged();
+
+            if (State == NPCState.Idle && AvailableSlots > 0)
             {
                 TryClaimTask();
             }
@@ -53,6 +63,61 @@ namespace FacesOfLabor.Core
             }
         }
 
+        protected virtual void CheckGridCellChanged()
+        {
+            GridSystem gridSystem = GridSystem.Instance;
+            if (gridSystem == null)
+                return;
+
+            Vector2Int currentGridPosition = gridSystem.WorldToGrid(transform.position);
+
+            if (currentGridPosition != previousGridPosition)
+            {
+                OnGridCellChanged(previousGridPosition, currentGridPosition);
+                previousGridPosition = currentGridPosition;
+            }
+        }
+
+        protected virtual void OnGridCellChanged(Vector2Int fromCell, Vector2Int toCell)
+        {
+            GridSystem gridSystem = GridSystem.Instance;
+            if (gridSystem == null)
+                return;
+
+            MaskStation maskStation = gridSystem.GetMaskStation(toCell);
+            if (maskStation != null)
+            {
+                InteractWithMaskStation(maskStation);
+            }
+        }
+
+        protected virtual void InteractWithMaskStation(MaskStation maskStation)
+        {
+            if (CurrentMask != ItemPromise.None)
+            {
+                if (maskStation.TryPutMask(CurrentMask))
+                {
+                    Debug.Log($"NPC {name} removed mask '{CurrentMask}' at MaskStation.");
+                    acceptsPromise = ItemPromise.None;
+                    DeregisterFromTaskManager();
+                    Debug.Log($"NPC {name} deregistered from TaskManager as buffer holder.");
+                }
+                else
+                {
+                    Debug.LogWarning($"NPC {name} could not return mask '{CurrentMask}' to MaskStation.");
+                }
+            }
+            else
+            {
+                if (maskStation.TryGetMask(out ItemPromise newMask))
+                {
+                    acceptsPromise = newMask;
+                    RegisterWithTaskManager();
+                    Debug.Log($"NPC {name} picked up mask '{CurrentMask}' at MaskStation and registered as buffer holder.");
+                }
+            }
+        }
+
         protected virtual bool IsAtTarget()
         {
             if (MoveTarget == null)
@@ -63,26 +128,32 @@ namespace FacesOfLabor.Core
         }
 
         /// <summary>
-        /// Moves the NPC towards the current MoveTarget.
+        /// Moves the NPC towards the current MoveTarget by heading towards the next cell center.
         /// </summary>
         protected virtual void MoveTowardsTarget()
         {
             if (MoveTarget == null)
                 throw new InvalidOperationException("No MoveTarget set for NPC.");
 
-            Vector2Int direction = PathfindingSystem.Instance?.GetDirection(transform.position, MoveTarget.position) ?? Vector2Int.zero;
+            GridSystem gridSystem = GridSystem.Instance;
+            if (gridSystem == null)
+                throw new InvalidOperationException("GridSystem instance not found.");
 
-            if (direction != Vector2Int.zero)
+            Vector2Int currentCell = gridSystem.WorldToGrid(transform.position);
+            Vector2Int targetCell = gridSystem.WorldToGrid(MoveTarget.position);
+
+
+            if (PathfindingSystem.Instance.IsReachable(currentCell, targetCell))
             {
-                Vector3 moveDirection = new Vector3(direction.x, 0, direction.y);
-                transform.position += moveDirection * moveSpeed * Time.deltaTime;
+                Vector2Int direction = PathfindingSystem.Instance.GetDirection(currentCell, targetCell);
+                Vector2Int nextCell = currentCell + direction;
+                Vector3 nextCellCenter = gridSystem.GetCellCenterWorld(nextCell);
+                Vector3 directionToNext = (nextCellCenter - transform.position).normalized;
+                transform.position += moveSpeed * Time.deltaTime * directionToNext;
             }
-            else if (PathfindingSystem.Instance.IsReachable(transform.position, MoveTarget.position))
+            else
             {
-                /// Pathfinding system only guides the NPC to that grid.
-                /// It is up to the NPC to fine-tune its movement to the exact target position.
-                Vector3 directionToTarget = (MoveTarget.position - transform.position).normalized;
-                transform.position += directionToTarget * moveSpeed * Time.deltaTime;
+                Debug.LogWarning($"NPC {name} cannot move to target {MoveTarget.name} from current cell {currentCell} to target cell {targetCell}.");
             }
         }
 
@@ -204,7 +275,15 @@ namespace FacesOfLabor.Core
             // TODO: Check for re-scheduled tasks
             if (CurrentTask.RepeatCount > 0) {
                 TaskInstance newTask = CurrentTask.Repeat();
-                if (TaskManager.Instance.AddTaskAndClaim(newTask))
+                if (AvailableSlots == 0)
+                {
+                    Debug.Log($"NPC {name} has no available slots to repeat task {CurrentTask.Id}.");
+                    // Put the task back in TaskManager
+                    newTask.ClearDeliveryEntities();
+                    newTask.ClearWorkStation();
+                    TaskManager.Instance.AddTask(newTask);
+                }
+                else if (TaskManager.Instance.AddTaskAndClaim(newTask))
                 {
                     Debug.Log($"NPC {name} repeating task {newTask.Id}.");
                     // TODO: Add to task list

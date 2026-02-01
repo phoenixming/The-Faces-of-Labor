@@ -9,6 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4551824329911071388}
+  - component: {fileID: 4262931769887553763}
   m_Layer: 0
   m_Name: MaskCounter
   m_TagString: Untagged
@@ -32,6 +33,23 @@ Transform:
   - {fileID: 8249855995456540173}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4262931769887553763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3101888539124473000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3c13bac2b56ac24882ae6e0a48afadf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  capacity: 0
+  acceptsPromise: 0
+  forPickup: 0
+  MaskLabel: 1
+  MaskCapacity: 10
 --- !u!1001 &8500501604819872230
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -41,6 +41,15 @@ namespace FacesOfLabor.Core
             if (AcceptsPromise != ItemPromise.None) BufferOwnerDestroyed?.Invoke(Id);
         }
 
+        public void RegisterWithTaskManager()
+        {
+            if (AcceptsPromise != ItemPromise.None) BufferOwnerStarted?.Invoke(this);
+        }
+
+        public void DeregisterFromTaskManager()
+        {
+            if (AcceptsPromise != ItemPromise.None) BufferOwnerDestroyed?.Invoke(Id);
+        }
 
         public bool TryReserveSlot(int quantity = 1)
         {
@@ -92,8 +101,14 @@ namespace FacesOfLabor.Core
                 return default;
             }
 
+            Debug.Log($"[{this}] Consuming {quantity} item(s).");
+
             var item = InputBuffer.Dequeue();
             reservedItems -= quantity;
+
+            Debug.Log($"[{this}] Available items after consume: {AvailableItems}");
+            Debug.Log($"[{this}] Available slots after consume: {AvailableSlots}");
+
             return item;
         }
 

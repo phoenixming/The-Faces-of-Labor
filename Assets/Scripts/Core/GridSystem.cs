@@ -48,6 +48,11 @@ namespace FacesOfLabor.Core
         /// </summary>
         private Dictionary<Guid, Vector2Int> infrastructurePositions;
 
+        /// <summary>
+        /// Mask stations by position for quick lookup.
+        /// </summary>
+        private Dictionary<Vector2Int, MaskStation> maskStations;
+
         public float CellSize => grid != null ? grid.cellSize.x : 1f;
 
         #region Singleton
@@ -87,6 +92,7 @@ namespace FacesOfLabor.Core
             walls = new HashSet<Vector2Int>();
             infrastructureEntities = new Dictionary<Vector2Int, MonoBehaviour>();
             infrastructurePositions = new Dictionary<Guid, Vector2Int>();
+            maskStations = new Dictionary<Vector2Int, MaskStation>();
         }
 
         #endregion
@@ -102,6 +108,10 @@ namespace FacesOfLabor.Core
             {
                 walls.Add(position);
             }
+            if (infrastructure is MaskStation maskStation)
+            {
+                maskStations[position] = maskStation;
+            }
             // Snap infrastructure to grid center
             infrastructure.transform.position = GetCellCenterWorld(position);
         }
@@ -113,6 +123,7 @@ namespace FacesOfLabor.Core
                 infrastructureEntities.Remove(position);
                 infrastructurePositions.Remove(infrastructureId);
                 walls.Remove(position);
+                maskStations.Remove(position);
             }
         }
 
@@ -255,6 +266,18 @@ namespace FacesOfLabor.Core
         public bool HasInfrastructure(Vector2Int coordinate)
         {
             return infrastructureEntities.ContainsKey(coordinate);
+        }
+
+        /// <summary>
+        /// Gets the MaskStation at a coordinate.
+        /// </summary>
+        public MaskStation GetMaskStation(Vector2Int coordinate)
+        {
+            if (maskStations.TryGetValue(coordinate, out MaskStation station))
+            {
+                return station;
+            }
+            return null;
         }
 
         #endregion

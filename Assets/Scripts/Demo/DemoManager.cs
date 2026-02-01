@@ -1,8 +1,17 @@
 using UnityEngine;
 using FacesOfLabor.Core;
+using System.Collections.Generic;
+using System;
 
 namespace FacesOfLabor.Demo
 {
+    [Serializable]
+    public struct MaskStationConfig
+    {
+        public MaskStation Station;
+        public int InitialMaskCount;
+    }
+
     public class DemoManager : MonoBehaviour
     {
         public static DemoManager Instance { get; private set; }
@@ -12,6 +21,10 @@ namespace FacesOfLabor.Demo
         public TaskDefinition[] oneTimeTasks;
         public TaskDefinition[] foreverTasks;
 
+        [Header("Mask Station Configuration")]
+        [Tooltip("List of mask stations with desired initial mask counts.")]
+        public List<MaskStationConfig> maskStationConfigs;
+
         private void Awake()
         {
             Instance = this;
@@ -19,8 +32,43 @@ namespace FacesOfLabor.Demo
 
         private void Start()
         {
+            InitializeMaskStations();
             ScheduleOneTimeTasks();
             ScheduleForeverTasks();
+        }
+
+        private void InitializeMaskStations()
+        {
+            if (maskStationConfigs == null || maskStationConfigs.Count == 0)
+            {
+                Debug.Log("[DemoManager] No mask station configurations provided.");
+                return;
+            }
+
+            foreach (var config in maskStationConfigs)
+            {
+                if (config.Station == null)
+                {
+                    Debug.LogWarning("[DemoManager] MaskStationConfig has null station reference.");
+                    continue;
+                }
+
+                for (int i = 0; i < config.InitialMaskCount; i++)
+                {
+                    ItemPromise mask = config.Station.MaskLabel;
+                    if (config.Station.TryPutMask(mask))
+                    {
+                        Debug.Log($"[DemoManager] Added initial mask to {config.Station.name}: {mask}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[DemoManager] Could not add mask to {config.Station.name} (queue full).");
+                        break;
+                    }
+                }
+            }
+
+            Debug.Log($"[DemoManager] Initialized {maskStationConfigs.Count} mask stations.");
         }
 
         private void ScheduleOneTimeTasks()
