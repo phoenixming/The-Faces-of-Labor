@@ -43,6 +43,11 @@ namespace FacesOfLabor.Core
         public int AvailableSlots => Capacity - InputBuffer.Count - reservedSlots;
         public int AvailableItems => InputBuffer.Count - reservedItems;
 
+        public void SetDefinition(WorkStationDefinition newDefinition)
+        {
+            definition = newDefinition;
+        }
+
         #region Slot Reservations (for incoming deliveries)
 
         /// <summary>
