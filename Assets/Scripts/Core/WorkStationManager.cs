@@ -34,6 +34,13 @@ namespace FacesOfLabor.Core
         [Tooltip("Input action for placing Station B.")]
         public InputAction TestPlaceAction2;
 
+        [Tooltip("Input action for toggling input enable/disable.")]
+        public InputAction ToggleInputAction;
+
+        [Header("Input Settings")]
+        [Tooltip("Enable or disable workstation placement input.")]
+        public bool InputEnabled = true;
+
         private Camera mainCamera;
 
         private void Awake()
@@ -70,6 +77,12 @@ namespace FacesOfLabor.Core
                 TestPlaceAction2.Enable();
                 TestPlaceAction2.performed += OnTestPlaceAction2;
             }
+
+            if (ToggleInputAction != null)
+            {
+                ToggleInputAction.Enable();
+                ToggleInputAction.performed += OnToggleInputAction;
+            }
         }
 
         private void OnDisable()
@@ -85,16 +98,67 @@ namespace FacesOfLabor.Core
                 TestPlaceAction2.performed -= OnTestPlaceAction2;
                 TestPlaceAction2.Disable();
             }
+
+            if (ToggleInputAction != null)
+            {
+                ToggleInputAction.performed -= OnToggleInputAction;
+                ToggleInputAction.Disable();
+            }
         }
 
         private void OnTestPlaceAction1(InputAction.CallbackContext context)
         {
-            PlaceWorkStation(StationAKey);
+            if (InputEnabled)
+            {
+                PlaceWorkStation(StationAKey);
+            }
         }
 
         private void OnTestPlaceAction2(InputAction.CallbackContext context)
         {
-            PlaceWorkStation(StationBKey);
+            if (InputEnabled)
+            {
+                PlaceWorkStation(StationBKey);
+            }
+        }
+
+        private void OnToggleInputAction(InputAction.CallbackContext context)
+        {
+            InputEnabled = !InputEnabled;
+        }
+
+        private void OnGUI()
+        {
+            if (InputEnabled && mainCamera != null && GridSystem.Instance != null)
+            {
+                Vector2Int gridPosition = GetCursorGridPosition();
+                if (gridPosition != Vector2Int.zero)
+                {
+                    // Get world position of the grid cell center
+                    Vector3 worldPosition = GridSystem.Instance.GetCellCenterWorld(gridPosition);
+                    
+                    // Convert world position to screen position
+                    Vector3 screenPosition = mainCamera.WorldToScreenPoint(worldPosition);
+                    
+                    // Get cell size
+                    float cellSize = GridSystem.Instance.CellSize;
+                    
+                    // Calculate screen coordinates for the grid cell
+                    float halfSize = cellSize * 0.5f;
+                    Vector3 topLeft = mainCamera.WorldToScreenPoint(worldPosition + new Vector3(-halfSize, 0, halfSize));
+                    Vector3 bottomRight = mainCamera.WorldToScreenPoint(worldPosition + new Vector3(halfSize, 0, -halfSize));
+                    
+                    // Convert screen coordinates to GUI coordinates (y is inverted)
+                    topLeft.y = Screen.height - topLeft.y;
+                    bottomRight.y = Screen.height - bottomRight.y;
+                    
+                    // Draw red rectangle
+                    GUI.color = Color.red;
+                    GUI.DrawTexture(new Rect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y), 
+                                   Texture2D.whiteTexture);
+                    GUI.color = Color.white;
+                }
+            }
         }
 
         private void InitializeRegistry()
