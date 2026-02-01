@@ -13,9 +13,6 @@ namespace FacesOfLabor.Core
         [Tooltip("ItemPromise this delivery fulfills.")]
         public ItemPromise DeliversPromise;
 
-        [Tooltip("Desired target type for delivery.")]
-        public WorkstationType TargetType;
-
         public override RealItem ProcessItem(RealItem input)
         {
             return input;

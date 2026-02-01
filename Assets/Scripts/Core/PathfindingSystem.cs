@@ -116,6 +116,19 @@ namespace FacesOfLabor.Core
         }
 
         /// <summary>
+        /// Gets the direction an agent should move to reach the destination.
+        /// </summary>
+        /// <param name="start">Current position in world coordinates.</param>
+        /// <param name="destination">Target position in world coordinates.</param>
+        /// <returns>Direction to move, or Vector2Int.zero if unreachable.</returns>
+        public Vector2Int GetDirection(Vector3 start, Vector3 destination)
+        {
+            Vector2Int startCell = gridSystem.WorldToGrid(start);
+            Vector2Int destinationCell = gridSystem.WorldToGrid(destination);
+            return GetDirection(startCell, destinationCell);
+        }
+
+        /// <summary>
         /// Checks if a destination is reachable from a start position.
         /// </summary>
         public bool IsReachable(Vector2Int start, Vector2Int destination)

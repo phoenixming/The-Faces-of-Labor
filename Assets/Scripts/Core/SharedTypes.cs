@@ -131,7 +131,7 @@ namespace FacesOfLabor.Core
         Delivery,
 
         /// <summary>Self-care tasks (eating, medicine) - autonomous.</summary>
-        SelfCare
+        Consumption
     }
 
     #endregion

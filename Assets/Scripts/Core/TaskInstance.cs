@@ -1,174 +1,93 @@
-using System.Collections.Generic;
+using UnityEngine;
+using System;
 
 namespace FacesOfLabor.Core
 {
     /// <summary>
-    /// Runtime instance of an executable task.
+    /// Runtime instance of a task being managed by TaskManager.
+    /// Created when a TaskDefinition is instantiated for execution.
     ///
     /// Responsibilities:
-    /// - Carry all runtime state for scheduling
-    /// - Manage task lifecycle (Pending -> Ready -> Claimed -> Executing)
-    /// - Track execution progress and time remaining
-    /// - Handle respawning for continuous tasks
+    /// - Track task state (Pending, Ready, Claimed, Executing)
+    /// - Hold reference to TaskDefinition for parameters
+    /// - Track assigned workstation and NPC
     ///
     /// Design:
-    /// - Created from TaskDefinition template
-    /// - Only TaskInstances participate in scheduling
-    /// - All state is instance-local (no hidden scheduling state)
+    /// - Created by TaskManager when adding tasks
+    /// - Immutable definition reference, mutable runtime state
+    /// - State transitions: Pending → Ready → Claimed → Executing
     /// </summary>
     public class TaskInstance
     {
-        /// <summary>
-        /// Unique identifier for this instance.
-        /// Used for tracking reservations and debugging.
-        /// </summary>
-        public readonly uint InstanceId;
-
-        /// <summary>
-        /// Template this instance was created from.
-        /// Immutable reference to static task definition.
-        /// </summary>
         public readonly TaskDefinition Definition;
+        public readonly Guid Id;
 
-        /// <summary>
-        /// Current lifecycle state.
-        /// </summary>
-        public TaskState State { get; private set; }
-
-        /// <summary>
-        /// Number of times this task should respawn after completion.
-        /// 0 = one-shot task, UINT_MAX = effectively infinite.
-        /// </summary>
-        public uint RespawnCount;
-
-        /// <summary>
-        /// Remaining execution time in seconds.
-        /// </summary>
-        public float TimeRemaining;
-
-        /// <summary>
-        /// Handles to all reserved inputs and output buffer slots.
-        /// </summary>
-        public List<object> Reservations { get; private set; }
-
-        /// <summary>
-        /// Task type shortcut (inherited from definition).
-        /// </summary>
         public TaskType Type => Definition.Type;
+        public int RepeatCount = 0;
 
-        /// <summary>
-        /// Execution progress as a ratio (0.0 to 1.0).
-        /// Returns -1 if not currently executing.
-        /// </summary>
-        public float Progress
+        public TaskState State { get; private set; }
+        public WorkStation WorkStation { get; private set; }
+        public bool HasWorkStation => WorkStation != null;
+
+        public ItemBufferOwner PickupEntity { get; private set; }
+        public ItemBufferOwner DropoffEntity { get; private set; }
+        public bool HasPickupEntity => PickupEntity != null;
+        public bool HasDropoffEntity => DropoffEntity != null;
+
+        public TaskInstance(TaskDefinition definition, int repeatCount = 0)
         {
-            get
-            {
-                if (State != TaskState.Executing)
-                    return -1f;
-
-                float totalTime = Definition.Duration;
-                if (totalTime <= 0f)
-                    return 1f;
-
-                return 1f - (TimeRemaining / totalTime);
-            }
-        }
-
-        private static uint nextInstanceId = 0;
-
-        /// <summary>
-        /// Creates a new task instance from a definition.
-        /// </summary>
-        /// <param name="definition">Template to instantiate.</param>
-        /// <param name="respawnCount">Number of times to respawn after completion (0 = one-shot).</param>
-        public TaskInstance(TaskDefinition definition, uint respawnCount = 0)
-        {
-            InstanceId = nextInstanceId++;
-            Definition = definition ?? throw new System.ArgumentNullException(nameof(definition));
+            Definition = definition;
+            Id = Guid.NewGuid();
+            RepeatCount = repeatCount;
             State = TaskState.Pending;
-            RespawnCount = respawnCount;
-            TimeRemaining = definition.Duration;
-            Reservations = new List<object>();
+            WorkStation = null;
         }
 
-        /// <summary>
-        /// Attempts to transition to a new state.
-        /// Returns true if transition was valid and successful.
-        /// </summary>
-        public bool SetState(TaskState newState)
+        public void TransitionTo(TaskState newState)
         {
-            if (!IsValidTransition(newState))
-                return false;
-
             State = newState;
-            return true;
+            Debug.Log($"Task {Id} transitioned to state {State}");
         }
 
-        /// <summary>
-        /// Checks if a state transition is valid.
-        /// </summary>
-        private bool IsValidTransition(TaskState newState)
+        public TaskInstance Repeat()
         {
-            return (State, newState) switch
+            if (RepeatCount > 0)
             {
-                (TaskState.Pending, TaskState.Ready) => true,
-                (TaskState.Ready, TaskState.Claimed) => true,
-                (TaskState.Claimed, TaskState.Executing) => true,
-                (TaskState.Executing, TaskState.Pending) => true, // Interrupted
-                _ => false
-            };
-        }
-
-        /// <summary>
-        /// Updates execution progress by deltaTime.
-        /// Should only be called when state is Executing.
-        /// </summary>
-        public void UpdateExecution(float deltaTime)
-        {
-            if (State != TaskState.Executing)
-                return;
-
-            TimeRemaining -= deltaTime;
-            if (TimeRemaining <= 0f)
-            {
-                TimeRemaining = 0f;
+                return new TaskInstance(Definition, RepeatCount - 1)
+                {
+                    WorkStation = this.WorkStation,
+                    PickupEntity = this.PickupEntity,
+                    DropoffEntity = this.DropoffEntity
+                };
+            } else {
+                return null;
             }
         }
 
-        /// <summary>
-        /// Checks if execution has completed.
-        /// </summary>
-        public bool IsComplete => State == TaskState.Executing && TimeRemaining <= 0f;
-
-        /// <summary>
-        /// Creates a new instance for respawning with decremented counter.
-        /// Returns null if respawn count is zero.
-        /// </summary>
-        public TaskInstance CreateRespawnedInstance()
+        public void AssignWorkStation(WorkStation station)
         {
-            if (RespawnCount == 0)
-                return null;
-
-            return new TaskInstance(Definition, RespawnCount - 1);
+            WorkStation = station;
         }
 
-        /// <summary>
-        /// Clears all reservations.
-        /// Should be called when task completes or is cancelled.
-        /// </summary>
-        public void ClearReservations()
+        public void ClearWorkStation()
         {
-            Reservations?.Clear();
+            WorkStation = null;
         }
 
-        /// <summary>
-        /// Adds a reservation handle.
-        /// </summary>
-        public void AddReservation(object handle)
+        public void AssignPickupEntity(ItemBufferOwner entity)
         {
-            Reservations ??= new List<object>();
-            Reservations.Add(handle);
+            PickupEntity = entity;
+        }
+
+        public void AssignDropoffEntity(ItemBufferOwner entity)
+        {
+            DropoffEntity = entity;
+        }
+
+        public void ClearDeliveryEntities()
+        {
+            PickupEntity = null;
+            DropoffEntity = null;
         }
     }
 }

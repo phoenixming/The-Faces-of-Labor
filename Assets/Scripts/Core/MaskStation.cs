@@ -2,23 +2,16 @@ using UnityEngine;
 
 namespace FacesOfLabor.Core
 {
-    public enum MaskType
-    {
-        None,
-        Farmer,
-        Chef,
-        Carrier
-    }
-
     public class MaskStation : MonoBehaviour
     {
-        public MaskType MaskToGive;
+        // ItemPromise is equivalent to MaskType for masks
+        public ItemPromise MaskToGive;
         public int MaskInventory;
         public int MaxMaskInventory;
         public bool HasMask => true;
         public bool CanTakeMasks;
 
-        public bool TryGiveMask(out MaskType mask) { mask = MaskType.None; return false; }
-        public bool TryTakeMask(MaskType mask) => false;
+        public bool TryGiveMask(out ItemPromise mask) { mask = ItemPromise.None; return false; }
+        public bool TryTakeMask(ItemPromise mask) => false;
     }
 }

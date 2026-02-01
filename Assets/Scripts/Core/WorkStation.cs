@@ -1,6 +1,5 @@
 using UnityEngine;
 using System;
-using System.Collections.Generic;
 
 namespace FacesOfLabor.Core
 {
@@ -11,6 +10,7 @@ namespace FacesOfLabor.Core
     /// Responsibilities:
     /// - Hold reference to WorkStationDefinition for physical constraints
     /// - Manage input buffer with reservation system for slots and items
+    /// - Execute tasks on this workstation
     ///
     /// Design:
     /// - Scene objects are thin containers around ScriptableObject definitions
@@ -28,91 +28,38 @@ namespace FacesOfLabor.Core
         [Tooltip("Grid cell this workstation occupies.")]
         public Vector2Int GridPosition;
 
-        [Tooltip("Input items currently in the buffer.")]
-        public Queue<RealItem> InputBuffer = new Queue<RealItem>();
-
         public WorkStationDefinition Definition => definition;
         public WorkstationType Type => definition?.Type ?? WorkstationType.None;
-        public int Capacity => definition?.InputBufferSize ?? 0;
-        public bool AcceptsInput => Capacity > 0;
-        public ItemPromise AcceptsPromise => definition?.AcceptsInput ?? ItemPromise.None;
+        public override int Capacity => definition?.InputBufferSize ?? 0;
+        public override bool AcceptsInput => Capacity > 0;
+        public override ItemPromise AcceptsPromise => definition?.AcceptsInput ?? ItemPromise.None;
 
-        private int reservedSlots = 0;
-        private int reservedItems = 0;
-
-        public int AvailableSlots => Capacity - InputBuffer.Count - reservedSlots;
-        public int AvailableItems => InputBuffer.Count - reservedItems;
-
-        #region Slot Reservations (for incoming deliveries)
-
-        /// <summary>
-        /// Reserve free slots for items being delivered to this workstation.
-        /// Call before adding items. Prevents buffer overflow.
-        /// </summary>
-        /// <param name="quantity">Number of slots to reserve.</param>
-        /// <returns>True if reservation succeeded.</returns>
-        public bool TryReserveSlot(int quantity = 1)
+        public void ExecuteTask(TaskDefinition taskDefinition, Action<RealItem> onComplete)
         {
-            if (quantity > AvailableSlots)
-                return false;
-
-            reservedSlots += quantity;
-            return true;
-        }
-
-        /// <summary>
-        /// Add items from a delivery. Must have reserved slots first.
-        /// </summary>
-        public void AddItem(RealItem item, int quantity = 1)
-        {
-            if (quantity > reservedSlots)
+            if (taskDefinition.Type == TaskType.Delivery)
             {
-                Debug.LogError($"Adding more items ({quantity}) than reserved slots ({reservedSlots}).");
+                Debug.LogError($"Workstation {name} cannot execute Delivery tasks. Use delivery flow instead.");
+                onComplete?.Invoke(default);
                 return;
             }
 
-            for (int i = 0; i < quantity; i++)
-                InputBuffer.Enqueue(item);
+            RealItem inputItem = default;
 
-            reservedSlots -= quantity;
-        }
-
-        #endregion
-
-        #region Item Reservations (for task consumption)
-
-        /// <summary>
-        /// Reserve existing items for a task to consume.
-        /// Call before consuming items. Ensures atomicity.
-        /// </summary>
-        /// <param name="quantity">Number of items to reserve.</param>
-        /// <returns>True if reservation succeeded.</returns>
-        public bool TryReserveItem(int quantity = 1)
-        {
-            int available = InputBuffer.Count - reservedItems;
-            if (quantity > available)
-                return false;
-
-            reservedItems += quantity;
-            return true;
-        }
-
-        /// <summary>
-        /// Consume reserved items for a task. Returns the consumed items.
-        /// </summary>
-        public RealItem ConsumeItem(int quantity = 1)
-        {
-            if (quantity > reservedItems)
+            if (taskDefinition.Type == TaskType.Refinement || taskDefinition.Type == TaskType.Consumption)
             {
-                Debug.LogError($"Consuming more items ({quantity}) than reserved ({reservedItems}).");
-                return default;
+                // No need to check for available items, as we already checked during reservation
+                inputItem = ConsumeItem();
             }
 
-            var item = InputBuffer.Dequeue();
-            reservedItems -= quantity;
-            return item;
+            StartCoroutine(ExecuteTaskCoroutine(taskDefinition, inputItem, onComplete));
         }
 
-        #endregion
+        private System.Collections.IEnumerator ExecuteTaskCoroutine(TaskDefinition taskDefinition, RealItem inputItem, Action<RealItem> onComplete)
+        {
+            yield return new WaitForSeconds(taskDefinition.Duration);
+
+            RealItem outputItem = taskDefinition.ProcessItem(inputItem);
+            onComplete?.Invoke(outputItem);
+        }
     }
 }
