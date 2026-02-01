@@ -48,7 +48,7 @@ MonoBehaviour:
   capacity: 0
   acceptsPromise: 0
   forPickup: 0
-  definition: {fileID: 11400000, guid: 3b445c86da8d78945b77bbbf4ce88e69, type: 2}
+  definition: {fileID: 11400000, guid: a22c28ae778703b4d975fdbda0f59c4a, type: 2}
   GridPosition: {x: 0, y: 0}
 --- !u!1001 &2216074311409753097
 PrefabInstance:

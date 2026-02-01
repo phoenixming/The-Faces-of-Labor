@@ -30,7 +30,7 @@ namespace FacesOfLabor.Core
 
         public WorkStationDefinition Definition => definition;
         public WorkstationType Type => definition?.Type ?? WorkstationType.None;
-        public override int Capacity => definition?.InputBufferSize ?? 0;
+        // public override int Capacity => definition?.InputBufferSize ?? 0;
         public override bool AcceptsInput => Capacity > 0;
         public override ItemPromise AcceptsPromise => definition?.AcceptsInput ?? ItemPromise.None;
 
@@ -56,14 +56,17 @@ namespace FacesOfLabor.Core
                 inputItem = ConsumeItem();
             }
 
-            StartCoroutine(ExecuteTaskCoroutine(taskDefinition, inputItem, onComplete));
+            RealItem outputItem = taskDefinition.ProcessItem(inputItem);
+
+            StartCoroutine(ExecuteTaskCoroutine(taskDefinition, outputItem, onComplete));
         }
 
-        private System.Collections.IEnumerator ExecuteTaskCoroutine(TaskDefinition taskDefinition, RealItem inputItem, Action<RealItem> onComplete)
+        private System.Collections.IEnumerator ExecuteTaskCoroutine(TaskDefinition taskDefinition, RealItem outputItem, Action<RealItem> onComplete)
         {
             yield return new WaitForSeconds(taskDefinition.Duration);
 
-            RealItem outputItem = taskDefinition.ProcessItem(inputItem);
+            Debug.Log($"[{this}] Task {taskDefinition.Type} completed. Output item: {outputItem}");
+            Debug.Log($"[{this}] Now has {AvailableItems} available items and {AvailableSlots} available slots.");
             onComplete?.Invoke(outputItem);
         }
     }

@@ -271,13 +271,17 @@ namespace FacesOfLabor.Core
         {
             Debug.Log($"NPC {name} completed task {CurrentTask.Id}.");
             TaskManager.Instance.CompleteTask(CurrentTask);
+
+            WorkStation usedStation = CurrentTask.WorkStation;
             // TODO: Check for emergency state (e.g., starvation)
             // TODO: Check for re-scheduled tasks
             if (CurrentTask.RepeatCount > 0) {
                 TaskInstance newTask = CurrentTask.Repeat();
-                if (AvailableSlots == 0)
+                if (AvailableSlots == 0 || CurrentTask.Type == TaskType.Delivery)
                 {
-                    Debug.Log($"NPC {name} has no available slots to repeat task {CurrentTask.Id}.");
+                    // Debug.Log($"NPC {name} has no available slots to repeat task {CurrentTask.Id}.");
+                    Debug.Log($"Not repeating {CurrentTask.Type} task {CurrentTask.Id} due to lack of available slots or delivery task type.");
+
                     // Put the task back in TaskManager
                     newTask.ClearDeliveryEntities();
                     newTask.ClearWorkStation();
@@ -299,7 +303,11 @@ namespace FacesOfLabor.Core
             // Default task clean-up
             CurrentTask = null;
             State = NPCState.Idle;
-
+            // Release the workstation
+            if (usedStation != null)
+            {
+                TaskManager.Instance.AddFreeWorkStation(usedStation);
+            }
         }
 
         private void ResetStates()

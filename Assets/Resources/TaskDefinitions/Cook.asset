@@ -9,10 +9,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 98e9874f3de46b94f826358e8fd6ab0f, type: 3}
-  m_Name: Farm
+  m_Script: {fileID: 11500000, guid: 5b85adbb7fec31a46bcc7b9a90056d3a, type: 3}
+  m_Name: Cook
   m_EditorClassIdentifier: 
-  Type: 1
-  DisplayName: Farm
-  AcceptsInput: 0
-  InputBufferSize: 0
+  Type: 2
+  DisplayName: Cook
+  Description: Cook
+  ShowInList: 1
+  Duration: 3
+  RequiredWorkstation: 2
+  RefinementAction: 0

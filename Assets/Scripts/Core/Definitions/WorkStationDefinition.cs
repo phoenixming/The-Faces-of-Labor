@@ -30,8 +30,5 @@ namespace FacesOfLabor.Core
         [Header("Input")]
         [Tooltip("ItemPromise this station accepts as input. Null if station does not accept input.")]
         public ItemPromise AcceptsInput;
-
-        [Tooltip("Maximum items that can be stored. 0 means station does not accept input.")]
-        public int InputBufferSize = 1;
     }
 }
