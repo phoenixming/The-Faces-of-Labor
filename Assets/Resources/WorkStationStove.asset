@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2b02625dd544a942afb005857fc8c4e, type: 3}
+  m_Name: WorkStationStove
+  m_EditorClassIdentifier: 
+  Definition: {fileID: 11400000, guid: ad317dd3bd2dc7347baa2be2ff7f5441, type: 2}
+  Prefab: {fileID: 4673788764228937524, guid: 81d0faf49b84ac146b58ae654305f6b6, type: 3}

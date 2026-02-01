@@ -34,6 +34,11 @@ namespace FacesOfLabor.Core
         public override bool AcceptsInput => Capacity > 0;
         public override ItemPromise AcceptsPromise => definition?.AcceptsInput ?? ItemPromise.None;
 
+        public void SetDefinition(WorkStationDefinition newDefinition)
+        {
+            definition = newDefinition;
+        }
+
         public void ExecuteTask(TaskDefinition taskDefinition, Action<RealItem> onComplete)
         {
             if (taskDefinition.Type == TaskType.Delivery)

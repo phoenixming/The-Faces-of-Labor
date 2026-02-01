@@ -170,7 +170,8 @@ namespace FacesOfLabor.Core
         Stove,
         ExtractionTable,
         Smelter,
-        DiningHall
+        DiningHall,
+        MaskStation,
     }
 
     #endregion
